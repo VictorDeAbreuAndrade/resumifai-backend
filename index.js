@@ -11,7 +11,7 @@ const allowedOrigins = [
   "https://victordeabreuandrade.github.io/resumifai-web/"
 ]
 
-const genAI = new GoogleGenerativeAI(GOOGLE_GENERATIVE_AI_API_KEY);
+const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 // Middleware to handle CORS
