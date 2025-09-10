@@ -18,6 +18,8 @@ const handleCors = (request, response) => {
     response.headers.set("Access-Control-Allow-Origin", origin);
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+  } else {
+    response.headers.set("Access-Control-Allow-Origin", "null");
   }
   return response;
 };
@@ -110,6 +112,13 @@ router.post("/summary", async (request, env) => {
     );
     return handleCors(request, response);
   }
+});
+
+// Handle preflight requests
+router.options("*", (request) => {
+  const response = new Response(null, { status: 204 });
+  handleCors(request, response);
+  return response;
 });
 
 // Export the router for Cloudflare Workers
