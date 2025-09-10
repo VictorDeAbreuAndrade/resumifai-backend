@@ -8,11 +8,8 @@ const allowedOrigins = [
   "https://victordeabreuandrade.github.io",
   "https://victordeabreuandrade.github.io/",
   "https://victordeabreuandrade.github.io/resumifai-web",
-  "https://victordeabreuandrade.github.io/resumifai-web/"
-]
-
-const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  "https://victordeabreuandrade.github.io/resumifai-web/",
+];
 
 // Middleware to handle CORS
 const handleCors = (request, response) => {
@@ -26,7 +23,7 @@ const handleCors = (request, response) => {
 };
 
 // GET /transcription/:id
-router.get("/transcription/:id", async (request) => {
+router.get("/transcription/:id", async (request, env) => {
   const videoId = request.params.id;
 
   if (!videoId) {
@@ -75,7 +72,7 @@ router.get("/transcription/:id", async (request) => {
 });
 
 // POST /summary
-router.post("/summary", async (request) => {
+router.post("/summary", async (request, env) => {
   const { transcription, wordLimit } = await request.json();
 
   let wordLimitPhrase = "";
@@ -93,6 +90,8 @@ router.post("/summary", async (request) => {
 
   try {
     const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcription}`;
+    const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates[0].content.parts[0].text;
 
