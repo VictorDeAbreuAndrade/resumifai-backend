@@ -115,5 +115,5 @@ router.post("/summary", async (request) => {
 
 // Export the router for Cloudflare Workers
 export default {
-  fetch: router.handle,
+  fetch: (request, env) => router.handle(request, env),
 };
