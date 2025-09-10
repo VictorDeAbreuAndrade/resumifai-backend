@@ -23,8 +23,7 @@
   "type": "module",
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
-    "cors": "^2.8.5",
-    "express": "^4.21.1",
+    "itty-router": "^5.0.22",
     "youtubei.js": "^13.4.0"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-name = "resumifai-backend"
+name = "resumifai"
 account_id = "41c468479b19ba91d583229d6fac1d81"
 workers_dev = true
 compatibility_date = "2025-09-10"
