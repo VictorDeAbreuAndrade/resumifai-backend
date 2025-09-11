@@ -119,6 +119,14 @@ router.options("*", (request) => {
   return response;
 });
 
+router.get("/health", (request) => {
+  const response = new Response(
+    JSON.stringify({ status: "ok", message: "Worker is running!" }),
+    { status: 200, headers: { "Content-Type": "application/json" } }
+  );
+  return response;
+});
+
 // Export the router for Cloudflare Workers
 export default {
   fetch: async (request, env) => {
