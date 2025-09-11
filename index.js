@@ -15,7 +15,7 @@ const allowedOrigins = [
 const handleCors = (request, response) => {
   const origin = request.headers.get("Origin");
   if (allowedOrigins.includes(origin)) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
+    response.headers.set("Access-Control-Allow-Origin", "*");
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     response.headers.set("Access-Control-Allow-Headers", "Content-Type");
   } else {
