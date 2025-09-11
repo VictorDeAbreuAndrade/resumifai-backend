@@ -3,9 +3,6 @@ import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Innertube } from "youtubei.js";
 
-// import dotenv from "dotenv";
-// dotenv.config({ path: ".env" }); // Commented because Vercel use their own environment variables
-
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
@@ -70,7 +67,4 @@ app.post("/", async (req, res) => {
   }
 });
 
-// Comment this line because Google Cloud Functions will use the resumifai function
-// app.listen(port, () => console.log(`Backend is running on port ${port}`));
-
-export const resumifaiSummarizer = app;
+export default app;
