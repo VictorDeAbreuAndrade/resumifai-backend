@@ -15,13 +15,13 @@ const allowedOrigins = [
 const handleCors = (request, response) => {
   const origin = request.headers.get("Origin");
   if (allowedOrigins.includes(origin)) {
-    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Origin", origin);
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     response.headers.set("Access-Control-Allow-Headers", "Content-Type");
   } else {
     response.headers.set("Access-Control-Allow-Origin", "null");
   }
-  return response;
+  return response; // Certifique-se de retornar o objeto Response
 };
 
 // GET /transcription/:id
@@ -33,60 +33,52 @@ router.get("/transcription/:id", async (request, env) => {
       JSON.stringify({ error: "You must inform a video ID." }),
       { status: 400 }
     );
-    return handleCors(request, response);
+    return handleCors(request, response); // Retorne explicitamente
   }
-
-  const withTimeout = (promise, ms) => {
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Request timed out")), ms)
-    );
-    return Promise.race([promise, timeout]);
-  };
 
   try {
     console.log("Initializing YouTube API...");
-    const youtube = await withTimeout(
-      Innertube.create({ retrieve_player: false }),
-      10000
-    ); // 10 segundos
+    const youtube = await Innertube.create({ retrieve_player: false });
     console.log("YouTube API initialized.");
 
     console.log("Fetching video info...");
-    const info = await withTimeout(youtube.getInfo(`${videoId}`), 10000); // 10 segundos
+    const info = await youtube.getInfo(`${videoId}`);
     console.log("Video info fetched.");
 
     console.log("Fetching transcript...");
-    const transcriptData = await withTimeout(info.getTranscript(), 10000); // 10 segundos
+    const transcriptData = await info.getTranscript();
     console.log("Transcript fetched.");
-  } catch (error) {
-    console.error("Timeout or error:", error.message);
+
+    if (!transcriptData) {
+      const response = new Response(
+        JSON.stringify({ error: "Transcription not found!" }),
+        { status: 400 }
+      );
+      return handleCors(request, response); // Retorne explicitamente
+    }
+
+    const transcript =
+      transcriptData.transcript.content.body.initial_segments.map(
+        (segment) => segment.snippet.text
+      );
+
+    console.log("Transcription generated successfully!");
     const response = new Response(
-      JSON.stringify({ error: "Request timed out or failed." }),
+      JSON.stringify({ transcription: transcript.join(" ") }),
+      { status: 200 }
+    );
+    return handleCors(request, response); // Retorne explicitamente
+  } catch (error) {
+    console.error("Error:", error.message);
+    const response = new Response(
+      JSON.stringify({
+        error:
+          "Error trying to extract the video transcription from a YouTube video.",
+      }),
       { status: 500 }
     );
-    return handleCors(request, response);
+    return handleCors(request, response); // Retorne explicitamente
   }
-
-  if (!transcriptData) {
-    console.log("No transcript found.");
-    const response = new Response(
-      JSON.stringify({ error: "Transcription not found!" }),
-      { status: 400 }
-    );
-    return handleCors(request, response);
-  }
-
-  const transcript =
-    transcriptData.transcript.content.body.initial_segments.map(
-      (segment) => segment.snippet.text
-    );
-
-  console.log("Transcription generated successfully!");
-  const response = new Response(
-    JSON.stringify({ transcription: transcript.join(" ") }),
-    { status: 200 }
-  );
-  return handleCors(request, response);
 });
 
 // POST /summary
