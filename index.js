@@ -123,5 +123,7 @@ router.options("*", (request) => {
 
 // Export the router for Cloudflare Workers
 export default {
-  fetch: (request, env) => router.handle(request, env),
+  fetch: async (request, env) => {
+    return router.handle(request, env);
+  },
 };
