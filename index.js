@@ -1,135 +1,138 @@
-import { Router } from "itty-router";
+// import dotenv from "dotenv"; // Retirada, pois incluí a chave da API direto nos segredos do Cloudfare
+import express from "express";
+import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Innertube } from "youtubei.js";
 
-const router = Router();
+// dotenv.config({ path: ".env" }); // Retirada, pois incluí a chave da API direto nos segredos do Cloudfare
+
+const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+// const port = process.env.PORT; // Not used because Google Cloud Functions will use the resumifai function
+const originFrontEnd = process.env.FRONT_END_URL;
+
+const app = express();
 
 const allowedOrigins = [
   "https://victordeabreuandrade.github.io",
   "https://victordeabreuandrade.github.io/",
   "https://victordeabreuandrade.github.io/resumifai-web",
-  "https://victordeabreuandrade.github.io/resumifai-web/",
-];
+  "https://victordeabreuandrade.github.io/resumifai-web/"
+]
 
-// Middleware to handle CORS
-const handleCors = (request, response) => {
-  const origin = request.headers.get("Origin");
-  if (allowedOrigins.includes(origin)) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
-    response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-  } else {
-    response.headers.set("Access-Control-Allow-Origin", "null");
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json());
+
+app.get("/transcription/:id", async (req, res) => {
+  const videoId = req.params.id;
+
+  // console.log("Video ID:", videoId);
+
+  if (!videoId) {
+    return res.status(400).json({ error: "You must inform a video ID." });
   }
-  return response; // Certifique-se de retornar o objeto Response
-};
 
-const withTimeout = (promise, ms) => {
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Request timed out")), ms)
-  );
-  return Promise.race([promise, timeout]);
-};
-
-router.post("/", async (request, env) => {
   try {
-    // Parse o corpo da requisição
-    const { videoId, wordLimit } = await request.json();
 
-    console.log("Video ID:", videoId);
-    console.log("Word limit:", wordLimit);
+    const youtube = await Innertube.create({retrieve_player: false})
+    const info = await youtube.getInfo(`${videoId}`);
+    const transcriptData = await info.getTranscript();
 
-    if (!videoId) {
-      const response = new Response(
-        JSON.stringify({ error: "You must inform a video ID." }),
-        { status: 400 }
-      );
-      return handleCors(request, response);
-    }
+    const transcript = transcriptData.transcript.content.body.initial_segments.map(
+      (segment) => segment.snippet.text
+    );
 
-    let wordLimitPhrase = "";
-    if (wordLimit !== "noLimits") {
-      wordLimitPhrase = `Respect the limit of ${wordLimit} words. `;
-    }
+    // console.log(transcript.join(" "));
 
-    // Obtendo a transcrição
-    console.log("Initializing YouTube API...");
-    const youtube = await withTimeout(
-      Innertube.create({ retrieve_player: false }),
-      10000
-    ); // Timeout de 10 segundos
-    console.log("YouTube API initialized.");
-
-    console.log("Fetching video info...");
-    const info = await withTimeout(youtube.getInfo(`${videoId}`), 20000); // Timeout de 20 segundos
-    console.log("Video info fetched.");
-
-    console.log("Fetching transcript...");
-    const transcriptData = await withTimeout(info.getTranscript(), 10000); // Timeout de 10 segundos
-    console.log("Transcript fetched.");
-
-    if (!transcriptData) {
-      const response = new Response(
-        JSON.stringify({ error: "Transcription not found!" }),
-        { status: 400 }
-      );
-      return handleCors(request, response);
-    }
-
-    const transcript =
-      transcriptData.transcript.content.body.initial_segments.map(
-        (segment) => segment.snippet.text
-      );
-
-    console.log("Transcription generated successfully!");
-
-    // Gerando o resumo
-    const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcript.join(
-      " "
-    )}`;
-    const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const result = await withTimeout(model.generateContent(prompt), 10000); // Timeout de 10 segundos
-    const responseText = result.response.candidates[0].content.parts[0].text;
-
-    console.log("Summary generated successfully!");
-    const response = new Response(JSON.stringify({ summary: responseText }), {
-      status: 200,
-    });
-    return handleCors(request, response);
+    res.status(200).json({ transcription: transcript.join(" ") });
   } catch (error) {
     console.error("Error:", error.message);
-
-    // Retorna uma resposta de erro genérica
-    const response = new Response(
-      JSON.stringify({
-        error: "An error occurred while processing your request.",
-        details: error.message,
-      }),
-      { status: 500 }
-    );
-    return handleCors(request, response);
+    res.status(500).json({
+      error:
+        "Error trying to extract the video transcription from a YouTube video.",
+    });
   }
 });
 
-// Handle preflight requests
-router.options("*", (request) => {
-  const response = new Response(null, { status: 204 });
-  handleCors(request, response);
-  return response;
+app.post("/", async (req, res) => {
+  const videoId = req.body.videoId;
+  const wordLimit = req.body.wordLimit;
+
+  console.log("Video ID:", videoId);
+  console.log("Word limit:", wordLimit);
+
+  if (!videoId) {
+    return res.status(400).json({ error: "You must inform a video ID." });
+  }
+
+  let wordLimitPhrase = ''
+  wordLimit !== 'noLimits' ? wordLimitPhrase = `Respect the limit of ${wordLimit} words. ` : null
+
+  try {
+
+    // Obtaining the transcription
+    const youtube = await Innertube.create({retrieve_player: false})
+    const info = await youtube.getInfo(`${videoId}`);
+    const transcriptData = await info.getTranscript();
+
+    if (!transcriptData) {
+      return res.status(400).json({ error: "Transcription not found!" });
+    }
+
+    const transcript = transcriptData.transcript.content.body.initial_segments.map(
+      (segment) => segment.snippet.text
+    );
+
+    // console.log(transcript.join(" "));
+    console.log("Transcription generated successfully!");
+
+    // Generating the summary
+    const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcript.join(" ")}`;
+    const result = await model.generateContent(prompt);
+    const response = result.response.candidates[0].content.parts[0].text;
+
+    console.log("Summary generated successfully!");
+    res.status(200).json({ summary: response });
+
+  } catch (error) {
+    console.error("Error:", error.message);
+    res.status(500).json({
+      error:
+        "Error trying to extract the video transcription from a YouTube video.",
+    });
+  }
 });
 
-router.get("/health", (request) => {
-  const response = new Response(
-    JSON.stringify({ status: "ok", message: "Worker is running!" }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
-  );
-  return response;
+app.post("/summary", async (req, res) => {
+  const transcription = req.body.transcription;
+  const wordLimit = req.body.wordLimit;
+
+  let wordLimitPhrase = ''
+  wordLimit !== 'noLimits' ? wordLimitPhrase = `Respect the limit of ${wordLimit} words. ` : null
+
+  if (!transcription) {
+    return res.status(400).json({ error: "Transcription not found!" });
+  }
+
+  try {
+
+    // Prompt for sum up a video
+    const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcription}`;
+    const result = await model.generateContent(prompt);
+    const response = result.response.candidates[0].content.parts[0].text;
+
+    console.log("Summary generated successfully!");
+    res.status(200).json({ summary: response });
+  } catch (error) {
+    console.error("Error:", error.message);
+    res.status(500).json({
+      error: "Error trying to summarizing the video. Problems with Gemini.",
+    });
+  }
 });
 
-// Export the router for Cloudflare Workers
-export default {
-  fetch: async (request, env) => {
-    return router.handle(request, env);
-  },
-};
+// Comment this line because Google Cloud Functions will use the resumifai function
+// app.listen(port, () => console.log(`Backend is running on port ${port}`));
+
+export const resumifaiSummarizer = app;
