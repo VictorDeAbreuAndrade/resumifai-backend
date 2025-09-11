@@ -2,3 +2,4 @@
 .gcloudignore
 .env.example
 indexExpressVersion.js
+wrangler.toml

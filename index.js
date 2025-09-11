@@ -1,4 +1,4 @@
-// import dotenv from "dotenv"; // Retirada, pois incluí a chave da API direto nos segredos do Cloudfare
+// import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -23,37 +23,6 @@ const allowedOrigins = [
 
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
-
-app.get("/transcription/:id", async (req, res) => {
-  const videoId = req.params.id;
-
-  // console.log("Video ID:", videoId);
-
-  if (!videoId) {
-    return res.status(400).json({ error: "You must inform a video ID." });
-  }
-
-  try {
-
-    const youtube = await Innertube.create({retrieve_player: false})
-    const info = await youtube.getInfo(`${videoId}`);
-    const transcriptData = await info.getTranscript();
-
-    const transcript = transcriptData.transcript.content.body.initial_segments.map(
-      (segment) => segment.snippet.text
-    );
-
-    // console.log(transcript.join(" "));
-
-    res.status(200).json({ transcription: transcript.join(" ") });
-  } catch (error) {
-    console.error("Error:", error.message);
-    res.status(500).json({
-      error:
-        "Error trying to extract the video transcription from a YouTube video.",
-    });
-  }
-});
 
 app.post("/", async (req, res) => {
   const videoId = req.body.videoId;
@@ -100,34 +69,6 @@ app.post("/", async (req, res) => {
     res.status(500).json({
       error:
         "Error trying to extract the video transcription from a YouTube video.",
-    });
-  }
-});
-
-app.post("/summary", async (req, res) => {
-  const transcription = req.body.transcription;
-  const wordLimit = req.body.wordLimit;
-
-  let wordLimitPhrase = ''
-  wordLimit !== 'noLimits' ? wordLimitPhrase = `Respect the limit of ${wordLimit} words. ` : null
-
-  if (!transcription) {
-    return res.status(400).json({ error: "Transcription not found!" });
-  }
-
-  try {
-
-    // Prompt for sum up a video
-    const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcription}`;
-    const result = await model.generateContent(prompt);
-    const response = result.response.candidates[0].content.parts[0].text;
-
-    console.log("Summary generated successfully!");
-    res.status(200).json({ summary: response });
-  } catch (error) {
-    console.error("Error:", error.message);
-    res.status(500).json({
-      error: "Error trying to summarizing the video. Problems with Gemini.",
     });
   }
 });
