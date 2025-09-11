@@ -36,41 +36,57 @@ router.get("/transcription/:id", async (request, env) => {
     return handleCors(request, response);
   }
 
-  try {
-    const youtube = await Innertube.create({ retrieve_player: false });
-    const info = await youtube.getInfo(`${videoId}`);
-    const transcriptData = await info.getTranscript();
-
-    if (!transcriptData) {
-      const response = new Response(
-        JSON.stringify({ error: "Transcription not found!" }),
-        { status: 400 }
-      );
-      return handleCors(request, response);
-    }
-
-    const transcript =
-      transcriptData.transcript.content.body.initial_segments.map(
-        (segment) => segment.snippet.text
-      );
-
-    console.log("Transcription generated successfully!");
-    const response = new Response(
-      JSON.stringify({ transcription: transcript.join(" ") }),
-      { status: 200 }
+  const withTimeout = (promise, ms) => {
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timed out")), ms)
     );
-    return handleCors(request, response);
+    return Promise.race([promise, timeout]);
+  };
+
+  try {
+    console.log("Initializing YouTube API...");
+    const youtube = await withTimeout(
+      Innertube.create({ retrieve_player: false }),
+      10000
+    ); // 10 segundos
+    console.log("YouTube API initialized.");
+
+    console.log("Fetching video info...");
+    const info = await withTimeout(youtube.getInfo(`${videoId}`), 10000); // 10 segundos
+    console.log("Video info fetched.");
+
+    console.log("Fetching transcript...");
+    const transcriptData = await withTimeout(info.getTranscript(), 10000); // 10 segundos
+    console.log("Transcript fetched.");
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Timeout or error:", error.message);
     const response = new Response(
-      JSON.stringify({
-        error:
-          "Error trying to extract the video transcription from a YouTube video.",
-      }),
+      JSON.stringify({ error: "Request timed out or failed." }),
       { status: 500 }
     );
     return handleCors(request, response);
   }
+
+  if (!transcriptData) {
+    console.log("No transcript found.");
+    const response = new Response(
+      JSON.stringify({ error: "Transcription not found!" }),
+      { status: 400 }
+    );
+    return handleCors(request, response);
+  }
+
+  const transcript =
+    transcriptData.transcript.content.body.initial_segments.map(
+      (segment) => segment.snippet.text
+    );
+
+  console.log("Transcription generated successfully!");
+  const response = new Response(
+    JSON.stringify({ transcription: transcript.join(" ") }),
+    { status: 200 }
+  );
+  return handleCors(request, response);
 });
 
 // POST /summary
