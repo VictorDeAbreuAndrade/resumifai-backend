@@ -122,6 +122,82 @@ router.post("/summary", async (request, env) => {
   }
 });
 
+// POST /
+router.post("/", async (request, env) => {
+  const { videoId, wordLimit } = await request.json();
+
+  console.log("Video ID:", videoId);
+  console.log("Word limit:", wordLimit);
+
+  if (!videoId) {
+    const response = new Response(
+      JSON.stringify({ error: "You must inform a video ID." }),
+      { status: 400 }
+    );
+    return handleCors(request, response);
+  }
+
+  let wordLimitPhrase = "";
+  wordLimit !== "noLimits"
+    ? (wordLimitPhrase = `Respect the limit of ${wordLimit} words. `)
+    : null;
+
+  try {
+    // Obtaining the transcription
+    console.log("Initializing YouTube API...");
+    const youtube = await Innertube.create({ retrieve_player: false });
+    console.log("YouTube API initialized.");
+
+    console.log("Fetching video info...");
+    const info = await youtube.getInfo(`${videoId}`);
+    console.log("Video info fetched.");
+
+    console.log("Fetching transcript...");
+    const transcriptData = await info.getTranscript();
+    console.log("Transcript fetched.");
+
+    if (!transcriptData) {
+      const response = new Response(
+        JSON.stringify({ error: "Transcription not found!" }),
+        { status: 400 }
+      );
+      return handleCors(request, response);
+    }
+
+    const transcript =
+      transcriptData.transcript.content.body.initial_segments.map(
+        (segment) => segment.snippet.text
+      );
+
+    console.log("Transcription generated successfully!");
+
+    // Generating the summary
+    const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcript.join(
+      " "
+    )}`;
+    const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.candidates[0].content.parts[0].text;
+
+    console.log("Summary generated successfully!");
+    const response = new Response(JSON.stringify({ summary: responseText }), {
+      status: 200,
+    });
+    return handleCors(request, response);
+  } catch (error) {
+    console.error("Error:", error.message);
+    const response = new Response(
+      JSON.stringify({
+        error:
+          "Error trying to extract the video transcription from a YouTube video.",
+      }),
+      { status: 500 }
+    );
+    return handleCors(request, response);
+  }
+});
+
 // Handle preflight requests
 router.options("*", (request) => {
   const response = new Response(null, { status: 204 });
