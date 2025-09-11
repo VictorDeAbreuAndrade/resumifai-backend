@@ -1,16 +1,13 @@
-// import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Innertube } from "youtubei.js";
 
-// dotenv.config({ path: ".env" }); // Retirada, pois incluí a chave da API direto nos segredos do Cloudfare
+// import dotenv from "dotenv";
+// dotenv.config({ path: ".env" }); // Commented because Vercel use their own environment variables
 
-const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-// const port = process.env.PORT; // Not used because Google Cloud Functions will use the resumifai function
-const originFrontEnd = process.env.FRONT_END_URL;
 
 const app = express();
 
