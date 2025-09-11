@@ -24,136 +24,48 @@ const handleCors = (request, response) => {
   return response; // Certifique-se de retornar o objeto Response
 };
 
-// GET /transcription/:id
-router.get("/transcription/:id", async (request, env) => {
-  const videoId = request.params.id;
+const withTimeout = (promise, ms) => {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Request timed out")), ms)
+  );
+  return Promise.race([promise, timeout]);
+};
 
-  if (!videoId) {
-    const response = new Response(
-      JSON.stringify({ error: "You must inform a video ID." }),
-      { status: 400 }
-    );
-    return handleCors(request, response); // Retorne explicitamente
-  }
-
+router.post("/", async (request, env) => {
   try {
-    console.log("Initializing YouTube API...");
-    const youtube = await Innertube.create({ retrieve_player: false });
-    console.log("YouTube API initialized.");
+    // Parse o corpo da requisição
+    const { videoId, wordLimit } = await request.json();
 
-    console.log("Fetching video info...");
-    const info = await youtube.getInfo(`${videoId}`);
-    console.log("Video info fetched.");
+    console.log("Video ID:", videoId);
+    console.log("Word limit:", wordLimit);
 
-    console.log("Fetching transcript...");
-    const transcriptData = await info.getTranscript();
-    console.log("Transcript fetched.");
-
-    if (!transcriptData) {
+    if (!videoId) {
       const response = new Response(
-        JSON.stringify({ error: "Transcription not found!" }),
+        JSON.stringify({ error: "You must inform a video ID." }),
         { status: 400 }
       );
-      return handleCors(request, response); // Retorne explicitamente
+      return handleCors(request, response);
     }
 
-    const transcript =
-      transcriptData.transcript.content.body.initial_segments.map(
-        (segment) => segment.snippet.text
-      );
+    let wordLimitPhrase = "";
+    if (wordLimit !== "noLimits") {
+      wordLimitPhrase = `Respect the limit of ${wordLimit} words. `;
+    }
 
-    console.log("Transcription generated successfully!");
-    const response = new Response(
-      JSON.stringify({ transcription: transcript.join(" ") }),
-      { status: 200 }
-    );
-    return handleCors(request, response); // Retorne explicitamente
-  } catch (error) {
-    console.error("Error:", error.message);
-    const response = new Response(
-      JSON.stringify({
-        error:
-          "Error trying to extract the video transcription from a YouTube video.",
-      }),
-      { status: 500 }
-    );
-    return handleCors(request, response); // Retorne explicitamente
-  }
-});
-
-// POST /summary
-router.post("/summary", async (request, env) => {
-  const { transcription, wordLimit } = await request.json();
-
-  let wordLimitPhrase = "";
-  wordLimit !== "noLimits"
-    ? (wordLimitPhrase = `Respect the limit of ${wordLimit} words. `)
-    : null;
-
-  if (!transcription) {
-    const response = new Response(
-      JSON.stringify({ error: "Transcription not found!" }),
-      { status: 400 }
-    );
-    return handleCors(request, response);
-  }
-
-  try {
-    const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcription}`;
-    const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.candidates[0].content.parts[0].text;
-
-    console.log("Summary generated successfully!");
-    const response = new Response(JSON.stringify({ summary: responseText }), {
-      status: 200,
-    });
-    return handleCors(request, response);
-  } catch (error) {
-    console.error("Error:", error.message);
-    const response = new Response(
-      JSON.stringify({
-        error: "Error trying to summarize the video. Problems with Gemini.",
-      }),
-      { status: 500 }
-    );
-    return handleCors(request, response);
-  }
-});
-
-// POST /
-router.post("/", async (request, env) => {
-  const { videoId, wordLimit } = await request.json();
-
-  console.log("Video ID:", videoId);
-  console.log("Word limit:", wordLimit);
-
-  if (!videoId) {
-    const response = new Response(
-      JSON.stringify({ error: "You must inform a video ID." }),
-      { status: 400 }
-    );
-    return handleCors(request, response);
-  }
-
-  let wordLimitPhrase = "";
-  wordLimit !== "noLimits"
-    ? (wordLimitPhrase = `Respect the limit of ${wordLimit} words. `)
-    : null;
-
-  try {
-    // Obtaining the transcription
+    // Obtendo a transcrição
     console.log("Initializing YouTube API...");
-    const youtube = await Innertube.create({ retrieve_player: false });
+    const youtube = await withTimeout(
+      Innertube.create({ retrieve_player: false }),
+      10000
+    ); // Timeout de 10 segundos
     console.log("YouTube API initialized.");
 
     console.log("Fetching video info...");
-    const info = await youtube.getInfo(`${videoId}`);
+    const info = await withTimeout(youtube.getInfo(`${videoId}`), 20000); // Timeout de 20 segundos
     console.log("Video info fetched.");
 
     console.log("Fetching transcript...");
-    const transcriptData = await info.getTranscript();
+    const transcriptData = await withTimeout(info.getTranscript(), 10000); // Timeout de 10 segundos
     console.log("Transcript fetched.");
 
     if (!transcriptData) {
@@ -171,13 +83,13 @@ router.post("/", async (request, env) => {
 
     console.log("Transcription generated successfully!");
 
-    // Generating the summary
+    // Gerando o resumo
     const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcript.join(
       " "
     )}`;
     const genAI = new GoogleGenerativeAI(env.GOOGLE_GENERATIVE_AI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const result = await model.generateContent(prompt);
+    const result = await withTimeout(model.generateContent(prompt), 10000); // Timeout de 10 segundos
     const responseText = result.response.candidates[0].content.parts[0].text;
 
     console.log("Summary generated successfully!");
@@ -187,10 +99,12 @@ router.post("/", async (request, env) => {
     return handleCors(request, response);
   } catch (error) {
     console.error("Error:", error.message);
+
+    // Retorna uma resposta de erro genérica
     const response = new Response(
       JSON.stringify({
-        error:
-          "Error trying to extract the video transcription from a YouTube video.",
+        error: "An error occurred while processing your request.",
+        details: error.message,
       }),
       { status: 500 }
     );
