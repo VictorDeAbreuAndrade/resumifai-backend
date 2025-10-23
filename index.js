@@ -20,6 +20,7 @@ app.use(express.json());
 
 app.post("/", async (req, res) => {
   const videoId = req.body.videoId;
+  const stepByStep = req.body.stepByStep;
   const wordLimit = req.body.wordLimit;
 
   console.log("Video ID:", videoId);
@@ -51,7 +52,12 @@ app.post("/", async (req, res) => {
     console.log("Transcription generated successfully!");
 
     // Generating the summary
-    const prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcript.join(" ")}`;
+    let prompt = ''
+    if (stepByStep) {
+      prompt = `Make a step-by-step from the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the step-by-step in the same language as the text. That's the text:\n\n${transcript.join(" ")}`;
+    } else {
+      prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcript.join(" ")}`;
+    }
     const result = await model.generateContent(prompt);
     const response = result.response.candidates[0].content.parts[0].text;
 
