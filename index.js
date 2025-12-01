@@ -64,7 +64,7 @@ app.post("/", async (req, res) => {
         return res.status(400).json({ error: "Transcription not found!" });
       }
 
-      const transcript = transcriptData.transcript.content.body.initial_segments.map(
+      transcript = transcriptData.transcript.content.body.initial_segments.map(
         (segment) => segment.snippet.text
       );
     }
