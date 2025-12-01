@@ -102,10 +102,11 @@ app.post("/", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3002;
+// Just use this part to run the server locally
+// const PORT = process.env.PORT || 3002;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// app.listen(PORT, () => {
+//   console.log(`Server is running on port ${PORT}`);
+// });
 
 export default app;
