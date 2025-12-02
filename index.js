@@ -92,7 +92,11 @@ app.post("/", async (req, res) => {
     if (mode == "StepByStep") {
       prompt = `Make a step-by-step from the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the step-by-step in the same language as the text. That's the text:\n\n${transcript}`;
     } else if (mode == "script") {
-      prompt = `You are a famous influencer that make a living by producing viral videos to post on social media like YouTube, TikTok and Instagram. This text below is a transcript from another video. I want you to make a script from that, which will serve to produce a video to post on social media. Change the words, but keep the same meaning. You have to use a striking tone and a biting humor. Start with a viral and impactant phrase, to retain the user attention. Don't include information about ads and sponsorship. And I just want the text part, not title, images or scenes suggestions. ${wordLimitPhrase}Finally, this script should be created in Brazilian Portuguese. That's the text:\n\n${transcript}`;
+
+      wordLimit === "noLimits" ? wordLimitPhrase = "" : wordLimitPhrase = ` and have approximately ${wordLimit} words`;
+      console.log("Word limit phrase:", wordLimitPhrase);
+
+      prompt = `You are a famous influencer that make a living by producing viral videos to post on social media like YouTube, TikTok and Instagram. This text below is a transcript from another video. I want you to make a script from that, which will serve to produce a video to post on social media. Change the words, but keep the same meaning. You have to use a striking tone and a biting humor. Start with a viral and impactant phrase, to retain the user attention. Don't include information about ads and sponsorship. And I just want the text part, not title, images or scenes suggestions. Finally, this script should be created in Brazilian Portuguese${wordLimitPhrase}. That's the text:\n\n${transcript}`;
     } else {
       prompt = `Sum up the text below, keeping the important information. Don't include information about ads and sponsorship. ${wordLimitPhrase}Finally, keep the summary in the same language as the text. That's the text:\n\n${transcript}`;
     }
