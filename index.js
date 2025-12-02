@@ -27,6 +27,8 @@ app.post("/", async (req, res) => {
   const wordLimit = req.body.wordLimit;
 
   console.log("Video ID:", videoId);
+  console.log("Video URL:", url);
+  console.log("Mode:", mode);
   console.log("Word limit:", wordLimit);
 
   if (!videoId) {
